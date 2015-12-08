@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Stock App</string>
+    <string name="title_activity_fragment_portfolio">fragmentPortfolio</string>
+
+<!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+    <string name="text_price">Current price: </string>
+    <string name="text_name">Name: </string>
+    <string name="text_oprice">Opening price: </string>
+    <string name="text_percent">Percent change: </string>
+    <string name="text_volume">Volume: </string>
+    <string name="text_view">View Stock </string>
+    <string name="text_add">Add Stock </string>
+</resources>
