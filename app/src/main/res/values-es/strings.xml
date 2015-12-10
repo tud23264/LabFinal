@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="text_add">Anadir una Accion</string>
+    <string name="text_cancel">Cancelar</string>
+    <string name="text_confirm">Confirmar</string>
+    <string name="text_delete">Borrar</string>
+    <string name="text_name">Nombre:</string>
+    <string name="text_oprice">Precio de apertura:</string>
+    <string name="text_percent">Cambio porcentual:</string>
+    <string name="text_price">Precio actual:</string>
+    <string name="text_view">Vista accion</string>
+    <string name="text_volume">Volumen:</string>
+    <string-array name="spinner_text">
+        <item>1 dia</item>
+        <item>5 dias</item>
+        <item>1 semana</item>
+        <item>6 semanas</item>
+        <item>1 año</item>
+
+    </string-array>
+</resources>

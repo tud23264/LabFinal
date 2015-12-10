@@ -3,6 +3,7 @@ package com.example.colin.labfinal;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -11,11 +12,14 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import org.json.JSONArray;
@@ -23,11 +27,19 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 //TO DO: WORK ON THE BUTTON, HAVE IT DISPLAY INFO ABOUT THE SELECtED sTOCK ON DETAILS FRAGMENT
 //UPDATE Log 12/6: above still not working. need to be able to parse the JSON object correctly on details fragment.
+//TO DO 12/8: portfolio receives symbol. just need to get that into an array, display and store
 
 public class Portfolio extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
@@ -35,9 +47,7 @@ public class Portfolio extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+
 
     private onClickButtonListener mListener;
     public interface onClickButtonListener {
@@ -68,19 +78,65 @@ public class Portfolio extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d("testy", "tester");
 
     }
-    AutoCompleteTextView auto;
 
+    AutoCompleteTextView auto;
+    ArrayList<String> userPortfolio; //contains all user's stocks
+    ListView lstPortfolio;
+    boolean deleteMode = false;
+    int[] positions;
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Bundle args = getArguments();
+        if ((args != null)) {
+            if (args.getString("key") != null) {
+                String symbol = args.getString("key");
+                Log.d("portfolioReceivedSymbol", String.valueOf(userPortfolio.size()));
+                loadPortfolio();
+                userPortfolio.add(symbol);
+                savePortfolio();
+            }
+            if(args.getString("action") != null) {
+                if (args.getString("action") == "deleteMode") {
+                    deleteMode = true;
+                }
+                Log.d("receivedDeleteAction", args.getString("action"));
+            }
+        }
+    }
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View v = inflater.inflate(R.layout.fragment_portfolio, container, false);
+        setRetainInstance(true);
+
         final TextView text = (TextView)(v.findViewById(R.id.txtSymbol));
+        lstPortfolio = (ListView)(v.findViewById(R.id.lstStocks));
+        lstPortfolio.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                int[] positions = new int[lstPortfolio.getCount()];
+                if (deleteMode) {
+                    userPortfolio.remove((position));
+                    savePortfolio();
+                    loadPortfolio();
+                    Log.d("listClick", "it happened");
+                }
+                else mListener.onStockView(String.valueOf(parent.getItemAtPosition(position)));
+                //Log.d("listClick", "it happened");
+            }
+        });
 
+        if (userPortfolio == null) {
 
-
+            userPortfolio = new ArrayList<>(); //contains all user's stocks
+        }
+        loadPortfolio();
 
 
         auto = (AutoCompleteTextView) v.findViewById(R.id.txtSymbol);
@@ -100,8 +156,8 @@ public class Portfolio extends Fragment {
             public void onTextChanged(CharSequence charSequence, int i, int i2, int i3) {
                 Log.d("textChange", Integer.toString(charSequence.length()));
                 if (auto.getText().toString().contains(":")) //this should only be called when the user has selected a symbol from the drop-down list
-                    auto.setText(auto.getText().toString().substring(0, auto.getText().toString().indexOf(":") ));
-                if (charSequence.length() >= 2 )//&& charSequence.length() >= previousTextLength)
+                    auto.setText(auto.getText().toString().substring(0, auto.getText().toString().indexOf(":")));
+                if (charSequence.length() >= 2)//&& charSequence.length() >= previousTextLength)
                     updateSuggestions(charSequence.toString());
 
 
@@ -118,13 +174,48 @@ public class Portfolio extends Fragment {
             public void onClick(View v) {
 
                 Log.d("button check", auto.getText().toString());
-
-                mListener.onStockView(auto.getText().toString());
+                //if (auto.getText().toString().isEmpty())
+                    mListener.onStockView(auto.getText().toString());
+               /* else {
+                    String allStocks = "";
+                    for (int i = 0; i < userPortfolio.size(); i++) {
+                        allStocks = allStocks + userPortfolio.get(i).toString();
+                    }
+                    Log.d("allStocks", allStocks);
+                    mListener.onStockView(allStocks);
+                }*/
 
 
             }
         });
         return v;
+    }
+
+    public void savePortfolio() {
+        SharedPreferences shared = getContext().getSharedPreferences("stocks", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = shared.edit();
+        Set<String> set = new HashSet<String>();
+        set.addAll(userPortfolio);
+
+
+        editor.putStringSet("userstocks", set);
+        editor.commit();
+        //Set<String> set = new HashSet<String>();
+        //set.addAll(stocks);
+
+
+
+    }
+    public void loadPortfolio() {
+        SharedPreferences shared = getContext().getSharedPreferences("stocks", Context.MODE_PRIVATE);
+        Set<String> set = (Set<String>)(shared.getStringSet("userstocks", null));
+        if (set != null) {
+            Log.d("loadTest", set.toString());
+            userPortfolio.clear();
+            userPortfolio.addAll(set);
+            ArrayAdapter<String> stringArrayAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_dropdown_item_1line, userPortfolio);
+            lstPortfolio.setAdapter(stringArrayAdapter);
+        }
     }
 
 
@@ -152,7 +243,6 @@ private class CallSuggestionsAPI extends AsyncTask<String, Void, String[]> {
                 response = response.replace("YAHOO.Finance.SymbolSuggest.ssCallback(", "");
                 response = response.replace(");", "");
                 JSONObject responseObject = new JSONObject( response ); //NOTE: to fix error, do a substring search and then insert a : into the string after ssCallback
-
                 JSONObject tempValues = responseObject.getJSONObject("ResultSet");
                 JSONArray values = tempValues.getJSONArray("Result");
                 Log.d("jsonarray tester", values.toString());

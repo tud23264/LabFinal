@@ -1,6 +1,8 @@
 package com.example.colin.labfinal;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -13,8 +15,12 @@ import android.util.Xml;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import org.json.JSONArray;
@@ -57,17 +63,24 @@ public class DetailsFragment extends Fragment {
     private String mParam1;
     private String mParam2;
 
-    private OnFragmentInteractionListener mListener;
+
+    String currentlyViewedStock;
 
     TextView name;
     TextView price;
     TextView percent;
     TextView opening;
     TextView volume;
+    ListView listView;
+    Spinner spin;
 
     public class NewsFeed {
-        String newsTitle;
-        String newsURL;
+        public String newsTitle;
+        public String newsURL;
+    }
+    private onClickButtonListener mListener;
+    public interface onClickButtonListener {
+        public void onAddStock(String symbol);
     }
 
     ArrayList<NewsFeed> newsList = new ArrayList<>();
@@ -75,10 +88,28 @@ public class DetailsFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
+        spin.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String timeCode = "1d";
+                if (position == 0) timeCode = "1d";
+                if (position == 1) timeCode = "5d";
+                if (position == 2) timeCode = "1m";
+                if (position == 3) timeCode = "6m";
+                if (position == 4) timeCode = "1y";
+                new getImage().execute("https://chart.yahoo.com/z?t=" + timeCode+"&s=" + currentlyViewedStock);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
         Bundle args = getArguments();
         if ((args != null)) {
             String symbol = args.getString("key");
             Log.d("detailsReceivedSymbol", symbol);
+            currentlyViewedStock = symbol;
             new CallStockDataAPI().execute(symbol);
             new getImage().execute("https://chart.yahoo.com/z?t=1d&s=" + symbol);
             new ParseXML().execute(symbol);
@@ -101,8 +132,7 @@ public class DetailsFragment extends Fragment {
                 }
                 try {
 
-                    //response = response.replace("YAHOO.Finance.SymbolSuggest.ssCallback(", "");
-                    //response = response.replace(");", "");
+
                     JSONObject responseObject = new JSONObject( response ); //NOTE: to fix error, do a substring search and then insert a : into the string after ssCallback
 
                     JSONObject tempValues = responseObject.getJSONObject("list");
@@ -225,43 +255,63 @@ public class DetailsFragment extends Fragment {
         String text=null;
         String title=null;
         String link=null;
+        int counter = 0;
         try {
             event = myParser.getEventType();
 
             while (event != XmlPullParser.END_DOCUMENT) {
-                String name=myParser.getName();
+                    String name=myParser.getName();
 
-                switch (event){
-                    case XmlPullParser.START_TAG:
-                        break;
+                    switch (event){
+                        case XmlPullParser.START_TAG:
+                            break;
 
-                    case XmlPullParser.TEXT:
-                        text = myParser.getText();
-                        break;
+                        case XmlPullParser.TEXT:
+                            text = myParser.getText();
+                            break;
 
-                    case XmlPullParser.END_TAG:
-                        if(name.equals("title")){
-                            title = text;
-                        }
+                        case XmlPullParser.END_TAG:
+                            if(name.equals("title")){
+                                title = text;
+                            }
 
 
-                        else if(name.equals("link")){
-                            link = text;//myParser.getAttributeValue(null,"value");
-                        }
+                            else if(name.equals("link")){
+                                if (text.contains("*")) {
+                                    link = text.substring(text.indexOf("*")+ 1);//myParser.getAttributeValue(null,"value");
+                                    NewsFeed tempNews = new NewsFeed();
+                                    tempNews.newsTitle = title;
+                                    tempNews.newsURL = link;
+                                    newsList.add(tempNews);
 
-                        else{
-                            Log.d("XMLTESTZONE", title + ", at " + link); //12/7 TO DO: fix this thing. links are coming in but they need to be formatted properly.
-                        }
-                        break;
-                }
+                                    for (int i = 0; i < newsList.size(); i++) Log.d("newsFeedArrayTest", newsList.get(i).newsURL.toString() + ", " +newsList.get(i).newsTitle.toString());
+                                }
+
+                            }
+
+                            else{
+
+                                //Log.d("XMLTESTZONE", title + ", at " + link); //12/7 TO DO: fix this thing. links are coming in but they need to be formatted properly.
+                            }
+                            break;
+                    }
                 event = myParser.next();
             }
+            String[] newsTitlesArray = new String[newsList.size()];
+            for (int i = 0; i < newsList.size(); i++) newsTitlesArray[i] = newsList.get(i).newsTitle;
+            ArrayAdapter<String> stringArrayAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_dropdown_item_1line, newsTitlesArray);
+            setListViewAdapter(stringArrayAdapter);
             parsingComplete = false;
+
         }
 
         catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void setListViewAdapter(ArrayAdapter<String> adapter) {
+        listView.setAdapter(adapter);
     }
 
     private XmlPullParserFactory xmlFactoryObject;
@@ -350,23 +400,57 @@ public class DetailsFragment extends Fragment {
         percent = (TextView)v.findViewById(R.id.txtChange);
         opening = (TextView)v.findViewById(R.id.txtOpening);
         volume = (TextView)v.findViewById(R.id.txtVolume);
+        listView = (ListView)v.findViewById(R.id.lstNews);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Uri browserUri = Uri.parse(newsList.get(position).newsURL);
+                Intent launchBrowser = new Intent(Intent.ACTION_VIEW, browserUri);
+                startActivity(launchBrowser);
+            }
+        });
+
+        spin = (Spinner)v.findViewById(R.id.spnTime);
+        ArrayAdapter<String> stringArrayAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_spinner_dropdown_item, getResources().getStringArray(R.array.spinner_text));
+        spin.setAdapter(stringArrayAdapter);
+
+        final Button btnURL = (Button)(v.findViewById(R.id.btnAddStock));
+        btnURL.setOnClickListener(new Button.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                Log.d("currentlyViewedStock", currentlyViewedStock);
+
+                mListener.onAddStock(currentlyViewedStock);
+
+
+            }
+        });
+
         return v;
     }
 
     // TODO: Rename method, update argument and hook method into UI event
-    public void onButtonPressed(Uri uri) {
-        if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        try {
+            mListener = (onClickButtonListener) context;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.toString()+ " must implement listener.");
         }
+
     }
-
-
-
     @Override
     public void onDetach() {
         super.onDetach();
         mListener = null;
     }
+
+
+
+
 
 
     public interface OnFragmentInteractionListener {
