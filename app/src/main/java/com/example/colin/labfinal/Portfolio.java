@@ -78,7 +78,7 @@ public class Portfolio extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.d("testy", "tester");
+
 
     }
 
@@ -125,7 +125,7 @@ public class Portfolio extends Fragment {
                     userPortfolio.remove((position));
                     savePortfolio();
                     loadPortfolio();
-                    Log.d("listClick", "it happened");
+
                 }
                 else mListener.onStockView(String.valueOf(parent.getItemAtPosition(position)));
                 //Log.d("listClick", "it happened");
@@ -154,7 +154,7 @@ public class Portfolio extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i2, int i3) {
-                Log.d("textChange", Integer.toString(charSequence.length()));
+
                 if (auto.getText().toString().contains(":")) //this should only be called when the user has selected a symbol from the drop-down list
                     auto.setText(auto.getText().toString().substring(0, auto.getText().toString().indexOf(":")));
                 if (charSequence.length() >= 2)//&& charSequence.length() >= previousTextLength)
@@ -223,8 +223,8 @@ public class Portfolio extends Fragment {
         new CallSuggestionsAPI().execute(substring);
     }
 
-//  Updates the adapter with suggestions based on the last typed characters
-private class CallSuggestionsAPI extends AsyncTask<String, Void, String[]> {
+
+    private class CallSuggestionsAPI extends AsyncTask<String, Void, String[]> {
     @Override
     protected String[] doInBackground(String... params) {
         String[] suggestions = null;
