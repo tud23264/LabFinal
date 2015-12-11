@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.app.Fragment;
+import android.os.CountDownTimer;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -84,6 +85,7 @@ public class Portfolio extends Fragment {
 
     AutoCompleteTextView auto;
     ArrayList<String> userPortfolio; //contains all user's stocks
+    ArrayList<String> newAdapter;
     ListView lstPortfolio;
     boolean deleteMode = false;
     int[] positions;
@@ -126,9 +128,19 @@ public class Portfolio extends Fragment {
                     savePortfolio();
                     loadPortfolio();
 
+                } else {
+
+                    String cutoff = String.valueOf(parent.getItemAtPosition(position));
+                    String firstWord = null;
+                    if(cutoff.contains(" ")) {
+                        firstWord = cutoff.substring(0, cutoff.indexOf(" "));
+                    }
+
+
+
+                    mListener.onStockView(firstWord);
+                    //Log.d("listClick", "it happened");
                 }
-                else mListener.onStockView(String.valueOf(parent.getItemAtPosition(position)));
-                //Log.d("listClick", "it happened");
             }
         });
 
@@ -137,7 +149,11 @@ public class Portfolio extends Fragment {
             userPortfolio = new ArrayList<>(); //contains all user's stocks
         }
         loadPortfolio();
-
+        newAdapter = new ArrayList<>();
+        for (int i = 0; i < userPortfolio.size(); i++) {
+            new CallStockDataAPI().execute(userPortfolio.get(i), String.valueOf(i));
+        }
+        startTimer(2);
 
         auto = (AutoCompleteTextView) v.findViewById(R.id.txtSymbol);
 
@@ -271,7 +287,100 @@ public class Portfolio extends Fragment {
         }
     }
 }
+    private class CallStockDataAPI extends AsyncTask<String, Void, String[]> {
+        @Override
+        protected String[] doInBackground(String... params) {
+            String[] info = null;
+            try {
+                String url = "http://finance.yahoo.com/webservice/v1/symbols/" + params[0] +"/quote?format=json&view=basic" ;
 
+
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(new URL(url).openStream()));
+                String response = "", temp = "";
+                while ((temp = reader.readLine()) != null) {
+                    response += temp;
+                }
+                try {
+
+
+                    JSONObject responseObject = new JSONObject( response ); //NOTE: to fix error, do a substring search and then insert a : into the string after ssCallback
+
+                    JSONObject tempValues = responseObject.getJSONObject("list");
+                    JSONArray tempValues2 = tempValues.getJSONArray("resources");
+                    JSONObject tempValues3 = tempValues2.getJSONObject(0);
+                    JSONObject values;
+
+                    JSONObject tempValues4 = tempValues3.getJSONObject("resource");
+                    values = tempValues4.getJSONObject("fields");
+                    Log.d("jsonarray tester", values.toString());
+                    info = new String[5];
+                    int i = 0;
+                    info[i++] = params[1];
+                    info[i++] = values.getString("price");
+                    info[i++] = values.getString("chg_percent");
+                    info[i++] = String.valueOf(values.getDouble("price") - values.getDouble("change"));
+                    info[i] = values.getString("volume");
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+            return info;
+        }
+
+        protected void onPostExecute(String[] info) {
+            try{
+
+                String nameLabel = getString(R.string.text_name) + info[0];
+                String priceLabel = getString(R.string.text_price )+ info[1];
+                String percentLabel = getString(R.string.text_percent) + info[2];
+                String openLabel =getString( R.string.text_oprice) + info[3];
+                loadPortfolio();
+
+                //for (int j = 0; j < userPortfolio.size(); j++) {
+                    //userPortfolio.get(j).toString()
+                String status;
+                int price = Math.round(Float.parseFloat(info[1]));
+                int oprice = Math.round(Float.parseFloat(info[3]));
+                if (price > oprice) status = " is MORE than the opening price.";
+                else status = " is LESS than the opening price.";
+                newAdapter.add(userPortfolio.get(Integer.parseInt(info[0])).toString() + " at price " + String.valueOf(price) + status);
+
+                if (newAdapter.size() == userPortfolio.size()) updateWithPrices(newAdapter);
+
+                //}
+
+                //for (int i = 0; i < info.length; i++)
+                    //Log.d("onPost Test", info[i].toString());
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+    public void startTimer( final long time) {
+
+        new CountDownTimer((time*5000), time*5000) {
+            public void onTick(long millis) {
+                //Log.d("timer", "timer is working");
+
+            }
+            public void onFinish() {
+                newAdapter = new ArrayList<>();
+                for (int i = 0; i < userPortfolio.size(); i++) {
+                    new CallStockDataAPI().execute(userPortfolio.get(i), String.valueOf(i));
+                }
+                startTimer(time);
+            }
+        }.start();
+
+    }
+    public void updateWithPrices(ArrayList<String> adapt) {
+        ArrayAdapter<String> stringArrayAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_dropdown_item_1line, adapt);
+        lstPortfolio.setAdapter(stringArrayAdapter);
+    }
     // Method to start the service
     public void startService(View view, String url) {
         Intent mServiceIntent = new Intent(getActivity().getApplicationContext(), StockService.class);
